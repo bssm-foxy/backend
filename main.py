@@ -17,6 +17,8 @@ def home():
 # 로봇에서 도착되었다고 뜰 때까지 대기한 후 POST 전송 
 @app.post("/point/", status_code=status.HTTP_201_CREATED)
 def Point():
+    import time 
+    time.sleep(10) # 테스트를 위해 10초 대기 
     return {
         "Success_or_not": True
     }
