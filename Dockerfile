@@ -6,6 +6,6 @@ COPY ./requirements.txt /backend/requirements.txt
 
 RUN pip install --no-cache-dir --upgrade -r /backend/requirements.txt 
 
-COPY ./main.py /backend/
+COPY ./app/main.py /backend/app/
 
-CMD ["uvicorn", "main:app", "--reload"]
+CMD ["uvicorn", "app/main:app", "--reload"]
