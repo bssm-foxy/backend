@@ -5,8 +5,7 @@ from fastapi import APIRouter, status
 from models import Point
 from state import PointManager
 
-
-with open("../Data/Classes.yaml", "r") as file:
+with open("../data/Classes.yaml", "r") as file:
     yaml_file = yaml.safe_load(file)
 
 def load_file(classname):
