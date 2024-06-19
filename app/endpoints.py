@@ -2,8 +2,8 @@ import yaml
 
 from fastapi import APIRouter, status
 
-from app.models import Point
-from app.state import PointManager
+from models import Point
+from state import PointManager
 
 
 with open("./Data/Classes.yaml", "r") as file:
