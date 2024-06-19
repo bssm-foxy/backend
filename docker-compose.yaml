@@ -1,4 +1,4 @@
-version: '3.10'
+version: '3.11'
 
 services:
   fastapi:
@@ -7,4 +7,4 @@ services:
     ports:
       - 8080:8080
     volumes:
-      - ./:/backend
+      - ./app:/backend/app
