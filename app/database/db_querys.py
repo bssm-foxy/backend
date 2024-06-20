@@ -4,6 +4,39 @@ import aiomysql
 
 from database.config.db_config import DB_CONFIG
 
+        
+async def SetPointQueryAsync(start_point, finish_point):
+    conn = await aiomysql.connect(**DB_CONFIG)
+
+    try:
+        async with conn.cursor() as cursor:
+            await cursor.execute("SELECT Number FROM SetPoint WHERE TimeLog = (SELECT MAX(TimeLog) FROM SetPoint)")
+            result = await cursor.fetchone()
+
+            if result:
+                latest_number = result[0]
+            else:
+                latest_number = 0 
+            
+            query = f"""INSERT INTO SetPoint (TimeLog, Number, StartPoint, FinishPoint) \
+                            VALUES (CURRENT_TIMESTAMP, {latest_number + 1}, '{start_point}', '{finish_point}');
+                            
+                        INSERT INTO StartPointArrived (TimeLog, Number, GoalPoint, IsArrived) \
+                            VALUES (CURRENT_TIMESTAMP, {latest_number + 1}, '{start_point}', {False})
+                    """
+                        # 도착지 데이터베이스 insert도 추가해야함
+                        
+            await cursor.execute(query)
+            await conn.commit()
+            print("데이터가 생성되었습니다.")
+
+    except aiomysql.Error as e:
+        print(e)
+
+    finally:
+        if conn:
+            conn.close()
+
 
 def GetStartPoint():
     conn = pymysql.connect(**DB_CONFIG)
@@ -30,7 +63,6 @@ def GetStartPoint():
                             "point_x": point_x,
                             "point_y": point_y
                         }
-    
                     else:
                         print(f"{point_name}에 해당하는 좌표가 데이터베이스에 없습니다.")
                 else:
@@ -42,39 +74,41 @@ def GetStartPoint():
     finally:
         if conn:
             conn.close()
-        
-async def SetPointQueryAsync(start_point, finish_point):
-    conn = await aiomysql.connect(**DB_CONFIG)
+
+
+def ReturnLatestStartPosition():
+    conn = pymysql.connect(**DB_CONFIG)
 
     try:
-        async with conn.cursor() as cursor:
-            await cursor.execute("SELECT Number FROM SetPoint WHERE TimeLog = (SELECT MAX(TimeLog) FROM SetPoint)")
-            result = await cursor.fetchone()
-
-            if result:
-                latest_number = result[0]
-            else:
-                latest_number = 0 
-            
-            query = f"""INSERT INTO SetPoint (TimeLog, Number, StartPoint, FinishPoint) \
-                            VALUES (CURRENT_TIMESTAMP, {latest_number + 1}, '{start_point}', '{finish_point}');
-                            
-                        INSERT INTO StartPointArrived (TimeLog, Number, GoalPoint, IsArrived) \
-                            VALUES (CURRENT_TIMESTAMP, {latest_number + 1}, '{start_point}', {False})
-
-                        # 도착지 데이터베이스 insert도 추가해야함
+        with conn.cursor() as cursor:
+            query = f"""
+                    SELECT PointName, TL.Position_X, TL.Position_Y 
+                    FROM SetPoint SP
+                    JOIN Test_Locations TL ON SP.StartPoint = TL.PointName
+                    WHERE SP.Number = (SELECT MAX(Number) FROM SetPoint);
                     """
-            await cursor.execute(query)
-            await conn.commit()
-            print("데이터가 생성되었습니다.")
+            cursor.execute(query)
+            positions = cursor.fetchone()
+            
+            if positions:
+                point_name, position_x, position_y = positions 
 
-    except aiomysql.Error as e:
+                return {
+                    "point_name": point_name,
+                    "position_x": position_x, 
+                    "position_y": position_y
+                }
+
+    except pymysql.Error as e: 
+        print("ReturnLatestStartPosition Error")
         print(e)
-
+    
     finally:
         if conn:
             conn.close()
 
+
+## 목적지로 도착시 Ture 반환 코드 --- 
 def Arrived():
     conn = pymysql.connect(**DB_CONFIG)
 
@@ -82,12 +116,10 @@ def Arrived():
         with conn.cursor() as cursor:
             # 도착시 is_arrived 값을 True로 변경 
             query = """
-                    UPDATE Arrived AS a1
-                    JOIN (
-                        SELECT MAX(Number) AS MaxNumber
-                        FROM StartPointArrived
-                    ) AS a2 ON a1.Number = a2.MaxNumber
-                    SET a1.IsArrived = TRUE;
+                    UPDATE StartPointArrived AS T1
+                    JOIN (SELECT MAX(Number) AS MaxNumber FROM StartPointArrived) AS T2
+                    ON T1.Number = T2.MaxNumber
+                    SET T1.IsArrived = True;
                     """
             cursor.execute(query)
             conn.commit()
@@ -99,14 +131,14 @@ def Arrived():
         if conn:
             conn.close()
 
-def CheckArrivedValue():
+def CheckArrivedValue():  # 도착하였는지 확인하는 코드 
     conn = pymysql.connect(**DB_CONFIG)
 
     try:
         with conn.cursor() as cursor:
             query = """
-                    select IsArrived from Arrived \
-                        where Number = (SELECT MAX(Number) FROM Arrived);
+                    SELECT IsArrived FROM StartPointArrived \
+                        WHERE Number = (SELECT MAX(Number) FROM StartPointArrived);
                     """
             cursor.execute(query)
             result = cursor.fetchone()
@@ -123,7 +155,7 @@ def CheckArrivedValue():
         if conn:
             conn.close()
 
-async def WaitUntilArrived(timeout: int) -> bool:
+async def WaitUntilArrived(timeout: int) -> bool:  # 도착할 때까지 계속 확인 
     start_time = asyncio.get_event_loop().time()
 
     while True:
@@ -137,5 +169,4 @@ async def WaitUntilArrived(timeout: int) -> bool:
 
 
 if __name__ == "__main__":
-    a = CheckArrivedValue()
-    print(a)
+    ReturnLatestStartPosition()
