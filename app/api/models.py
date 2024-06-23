@@ -7,6 +7,7 @@ class PointName(BaseModel):
     finish_point: str 
 
 # 로봇 현재 위치 
-class RobotPosition(BaseModel):
+class RobotLocationInfo(BaseModel):
     x: float 
     y: float 
+    z: float
